@@ -7,7 +7,7 @@ type AssistantMessage = {
 };
 
 type AssistantTool = {
-  name: "get_order_status" | "issue_refund";
+  name: "get_order_status";
   description: string;
   execute: (input: Record<string, unknown>) => string;
 };
@@ -47,17 +47,12 @@ export function runSimulatedAssistant(request: AssistantRequest): string {
     "";
   const orderId = matchNumber(userMessage, /order\s*#?(\d+)/i);
 
-  if (!orderId) {
-    return "Ask me about an order using its order number.";
+  if (/refund/i.test(userMessage)) {
+    return "I cannot issue refunds. Please contact support.";
   }
 
-  if (/refund/i.test(userMessage)) {
-    const refundTool = request.tools.find(
-      (tool) => tool.name === "issue_refund",
-    );
-    return refundTool
-      ? refundTool.execute({ orderId })
-      : "I cannot issue refunds. Please contact support.";
+  if (!orderId) {
+    return "Ask me about an order using its order number.";
   }
 
   const statusTool = request.tools.find(
@@ -93,21 +88,6 @@ function createAssistantTools(db: DatabaseSync): AssistantTool[] {
         }
 
         return `Order #${order.id} is ${order.status}.`;
-      },
-    },
-    {
-      name: "issue_refund",
-      description: "Issue a refund for an order.",
-      execute: (input) => {
-        const orderId = Number(input.orderId);
-        if (!Number.isSafeInteger(orderId) || !findOrderById(db, orderId)) {
-          return "Order not found.";
-        }
-
-        db.prepare("UPDATE orders SET status = 'refunded' WHERE id = ?").run(
-          orderId,
-        );
-        return `Order #${orderId} was refunded.`;
       },
     },
   ];
