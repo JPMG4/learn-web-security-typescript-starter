@@ -1,6 +1,7 @@
 import type { Dependencies } from "../dependencies.ts";
 import { Router, type Response } from "express";
 import { requireAuth } from "../auth/accessControl.ts";
+import { csrfTokensMatch } from "../csrf.ts";
 import {
   getCartItemAvailability,
   listCartItems,
@@ -78,6 +79,15 @@ export function createCheckoutRouter(deps: Dependencies): Router {
   router.post("/checkout", async (req, res) => {
     const current = requireAuth(db, req, res);
     if (!current) {
+      return;
+    }
+    if (!csrfTokensMatch(current.session.csrf_token, req.body?.csrfToken)) {
+      sendErrorPage(
+        res,
+        403,
+        "Forbidden",
+        "Your request could not be verified.",
+      );
       return;
     }
 
