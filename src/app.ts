@@ -53,8 +53,9 @@ export function createApp(deps: Dependencies): express.Express {
     res.locals.cspNonce = cspNonce;
     res.set(
       "Content-Security-Policy",
-      `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'`,
+      `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; style-src 'self'; img-src 'self' data:; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'`,
     );
+    res.set("X-Frame-Options", "SAMEORIGIN");
     res.set(
       "X-Content-Type-Options",
       "nosniff",
