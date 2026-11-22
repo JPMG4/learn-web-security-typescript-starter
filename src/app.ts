@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import express, { type RequestHandler } from "express";
+import cors from "cors";
+import express from "express";
 import { validateRequestOrigin } from "./csrf.ts";
 import type { Dependencies } from "./dependencies.ts";
 import { errorHandler, sendErrorPage } from "./errors.ts";
@@ -21,29 +22,6 @@ import { createStorefrontRouter } from "./routes/storefront.ts";
 import { createSupportRouter } from "./routes/support.ts";
 import { migrateSensitiveDataAtRest } from "./storage/migrations.ts";
 
-const apiCors: RequestHandler = (req, res, next) => {
-  const origin = req.header("Origin");
-
-  if (origin) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-  }
-
-  res.setHeader("Vary", "Origin");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
-  if (req.method === "OPTIONS") {
-    res.sendStatus(204);
-    return;
-  }
-
-  next();
-};
-
 export function createApp(deps: Dependencies): express.Express {
   migrateSensitiveDataAtRest(deps.db, deps.keyring);
   const app = express();
@@ -56,6 +34,10 @@ export function createApp(deps: Dependencies): express.Express {
       `default-src 'self'; script-src 'self' 'nonce-${cspNonce}'; style-src 'self'; img-src 'self' data:; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'`,
     );
     res.set("X-Frame-Options", "SAMEORIGIN");
+    res.set(
+      "Referrer-Policy",
+      "strict-origin-when-cross-origin",
+    );
     res.set(
       "X-Content-Type-Options",
       "nosniff",
@@ -76,7 +58,15 @@ export function createApp(deps: Dependencies): express.Express {
   app.use(express.json());
   app.use(createPawPalRouter(deps));
   app.use(validateRequestOrigin(deps.appOrigin));
-  app.use("/api", apiCors);
+  app.use(
+    "/api/products",
+    cors({
+      origin: "*",
+      credentials: false,
+      methods: ["GET"],
+      allowedHeaders: [],
+    }),
+  );
   app.use(createApiRouter(deps));
 
   app.use(createArchiveRouter(deps));
