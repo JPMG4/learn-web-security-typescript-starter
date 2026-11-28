@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openDatabase } from "./db/index.ts";
@@ -8,6 +7,7 @@ export type Dependencies = {
   appOrigin: string;
   port: number;
   databasePath: string;
+  pawPalApiKey: string;
   acornFulfillmentDelayMs: number;
   maxRequestBodyBytes: number;
   maxUploadBytes: number;
@@ -23,6 +23,17 @@ function parseNonNegativeInteger(value: string, name: string): number {
     throw new Error(`${name} must be a non-negative integer`);
   }
   return parsed;
+}
+
+function requiredEnvironmentVariable(
+  env: NodeJS.ProcessEnv,
+  name: string,
+): string {
+  const value = env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
 }
 
 export function initDependencies(
@@ -42,15 +53,26 @@ export function initDependencies(
     throw new Error("ACORN_FULFILLMENT_DELAY_MS must be a non-negative number");
   }
 
+  const downloadSigningKeyHex = requiredEnvironmentVariable(
+    env,
+    "DOWNLOAD_SIGNING_KEY",
+  );
+  if (!/^[0-9a-f]{64}$/i.test(downloadSigningKeyHex)) {
+    throw new Error(
+      "DOWNLOAD_SIGNING_KEY must contain exactly 64 hexadecimal characters",
+    );
+  }
+
   const values = {
     appOrigin: new URL(env.APP_ORIGIN ?? "http://localhost:3000").origin,
     port,
     databasePath: env.DATABASE_URL ?? join(cwd, "data", "bearly-secure.sqlite"),
+    pawPalApiKey: requiredEnvironmentVariable(env, "PAWPAL_API_KEY"),
     acornFulfillmentDelayMs,
     maxRequestBodyBytes: 32 * 1024,
     maxUploadBytes: 1024 * 1024,
     maxPublicProductResults: 50,
-    downloadSigningKey: randomBytes(32),
+    downloadSigningKey: Buffer.from(downloadSigningKeyHex, "hex"),
     keyring: loadOptionalKeyring(env),
   };
 
